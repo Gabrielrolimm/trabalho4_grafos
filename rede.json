@@ -1,0 +1,28 @@
+{
+  "usuarios": [
+    "Gabriel", "Ana", "Bruno", "Carla", "Diego", "Elisa",
+    "Felipe", "Giovana", "Hugo", "Isabela", "João", "Larissa",
+    "Mateus", "Natália", "Otávio", "Paula", "Luisiana"
+  ],
+  "amizades": [
+    ["Gabriel", "Ana"],
+    ["Gabriel", "Bruno"],
+    ["Gabriel", "Carla"],
+    ["Ana", "Diego"],
+    ["Bruno", "Diego"],
+    ["Bruno", "Elisa"],
+    ["Carla", "Felipe"],
+    ["Diego", "Giovana"],
+    ["Elisa", "Hugo"],
+    ["Felipe", "Hugo"],
+    ["Giovana", "Isabela"],
+    ["Hugo", "João"],
+    ["Isabela", "Larissa"],
+    ["João", "Mateus"],
+    ["Larissa", "Natália"],
+    ["Mateus", "Otávio"],
+    ["Otávio", "Paula"],
+    ["Natália", "Paula"],
+    ["Paula", "Luisiana"]
+  ]
+}

@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rede Social — Busca em Largura</title>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<style>
+  :root {
+    --fundo: #f1f5f9; --card: #ffffff; --texto: #0f172a; --suave: #64748b;
+    --borda: #e2e8f0; --primaria: #4f46e5;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", Roboto, Arial, sans-serif;
+         background: var(--fundo); color: var(--texto); }
+  header { background: linear-gradient(120deg, #312e81, #4f46e5);
+           color: white; padding: 22px 28px; }
+  header h1 { margin: 0 0 4px; font-size: 1.6rem; }
+  header p { margin: 0; opacity: .85; }
+  .container { padding: 20px 28px; max-width: 1500px; margin: 0 auto; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+           gap: 12px; margin-bottom: 18px; }
+  .stat { background: var(--card); border-radius: 10px; padding: 12px 16px;
+          border: 1px solid var(--borda); }
+  .stat .valor { font-size: 1.5rem; font-weight: 700; color: var(--primaria); }
+  .stat .rotulo { font-size: .8rem; color: var(--suave); text-transform: uppercase; letter-spacing: .04em; }
+
+  .grid { display: grid; grid-template-columns: 400px 1fr; gap: 18px; }
+  @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }
+
+  .card { background: var(--card); border-radius: 12px; padding: 16px 18px;
+          border: 1px solid var(--borda); margin-bottom: 18px; }
+  .card h2 { font-size: 1rem; margin: 0 0 12px; }
+
+  label { display: block; font-size: .85rem; color: var(--suave); margin-bottom: 10px; }
+  select { width: 100%; padding: 8px; margin-top: 4px; border-radius: 8px;
+           border: 1px solid var(--borda); font-size: .95rem; }
+  button { cursor: pointer; border: none; border-radius: 8px; padding: 8px 12px;
+           font-size: .9rem; background: #e0e7ff; color: #312e81; font-weight: 600; }
+  button:hover { filter: brightness(.95); }
+  button.principal { background: var(--primaria); color: white; width: 100%; padding: 10px; }
+  .linha { display: flex; gap: 8px; align-items: end; }
+  .linha label { flex: 1; }
+  #btnTrocar { margin-bottom: 10px; }
+
+  .distancia { font-size: 2.6rem; font-weight: 800; color: #dc2626; line-height: 1; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+  .chip { background: #fee2e2; color: #991b1b; padding: 4px 10px; border-radius: 999px;
+          font-size: .85rem; font-weight: 600; }
+  .chip.laranja { background: #ffedd5; color: #9a3412; }
+  .chip.fila { background: #fef9c3; color: #854d0e; }
+  .seta { color: var(--suave); }
+  .vazio { color: var(--suave); font-style: italic; font-size: .85rem; }
+
+  .controles { display: flex; gap: 6px; margin-bottom: 10px; }
+  .controles button { flex: 1; }
+  #contador { font-size: .8rem; color: var(--suave); margin-bottom: 6px; }
+  #passoInfo { background: #f8fafc; border-left: 4px solid var(--primaria); padding: 10px 12px;
+               border-radius: 6px; font-size: .9rem; min-height: 60px; margin-bottom: 10px; }
+  .barra { height: 6px; background: var(--borda); border-radius: 3px; overflow: hidden; margin-bottom: 12px; }
+  .barra div { height: 100%; background: var(--primaria); transition: width .3s; }
+
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; margin-top: 10px; }
+  th, td { padding: 5px 8px; text-align: left; border-bottom: 1px solid var(--borda); }
+  th { color: var(--suave); font-weight: 600; }
+  tr.destaque td { background: #fee2e2; font-weight: 700; }
+
+  .grafo { position: sticky; top: 12px; }
+  #rede { height: 640px; border-radius: 10px; background: #fbfdff; border: 1px solid var(--borda); }
+  .legenda { display: flex; flex-wrap: wrap; gap: 14px; font-size: .82rem; margin-bottom: 10px; color: var(--suave); }
+  .legenda span { display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+                  margin-right: 5px; vertical-align: -1px; }
+  .dica { font-size: .8rem; color: var(--suave); margin-top: 8px; }
+
+  .matriz-wrap { overflow-x: auto; }
+  .matriz { border-collapse: collapse; font-size: .8rem; width: auto; }
+  .matriz th { writing-mode: vertical-rl; transform: rotate(180deg); padding: 6px 2px;
+               font-weight: 600; color: var(--texto); }
+  .matriz th.lin { writing-mode: horizontal-tb; transform: none; text-align: right; padding-right: 8px; }
+  .matriz td { width: 34px; height: 30px; text-align: center; cursor: pointer;
+               border: 2px solid white; border-radius: 4px; font-weight: 600; }
+  .matriz td:hover { outline: 2px solid var(--texto); }
+  .matriz td.sel { outline: 3px solid #dc2626; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Busca em Largura na Rede Social</h1>
+  <p>Encontrando a menor sequência de amigos que liga dois alunos da turma</p>
+</header>
+
+<div class="container">
+  <section class="stats" id="stats"></section>
+
+  <div class="grid">
+    <aside>
+      <div class="card">
+        <h2>1. Escolha os usuários</h2>
+        <div class="linha">
+          <label>Partida<select id="origem"></select></label>
+          <button id="btnTrocar" title="Inverter">⇄</button>
+          <label>Chegada<select id="destino"></select></label>
+        </div>
+        <button class="principal" id="btnBuscar">Buscar caminho mais curto</button>
+      </div>
+
+      <div class="card" id="resultado"></div>
+
+      <div class="card">
+        <h2>2. Passo a passo da BFS</h2>
+        <div class="controles">
+          <button id="btnInicio" title="Início">⏮</button>
+          <button id="btnVoltar" title="Voltar">◀</button>
+          <button id="btnPlay">▶ Animar</button>
+          <button id="btnAvancar" title="Avançar">▶</button>
+          <button id="btnFim" title="Resultado">⏭</button>
+        </div>
+        <div id="contador"></div>
+        <div class="barra"><div id="progresso"></div></div>
+        <div id="passoInfo"></div>
+        <b style="font-size:.85rem">Fila (primeiro à esquerda):</b>
+        <div class="chips" id="fila"></div>
+        <table id="tabela"></table>
+      </div>
+
+      <div class="card" id="distantes"></div>
+    </aside>
+
+    <section>
+      <div class="card grafo">
+        <div class="legenda">
+          <div><span style="background:#cbd5e1"></span>não visitado</div>
+          <div><span style="background:#facc15"></span>na fila</div>
+          <div><span style="background:#6366f1"></span>sendo processado</div>
+          <div><span style="background:#34d399"></span>visitado</div>
+          <div><span style="background:#ef4444"></span>caminho mais curto</div>
+        </div>
+        <div id="rede"></div>
+        <div class="dica">O número abaixo de cada nome é a distância até o usuário de partida.
+          Clique em um aluno para defini-lo como chegada.</div>
+      </div>
+    </section>
+  </div>
+
+  <div class="card">
+    <h2>4. Matriz de distâncias (clique numa célula para ver o caminho)</h2>
+    <div class="matriz-wrap"><table class="matriz" id="matriz"></table></div>
+  </div>
+</div>
+
+<script>
+const D = /*DADOS*/;
+
+const $ = id => document.getElementById(id);
+const COR = { neutro: "#cbd5e1", fila: "#facc15", atual: "#6366f1",
+              visitado: "#34d399", caminho: "#ef4444" };
+const chave = (a, b) => a < b ? a + "|" + b : b + "|" + a;
+const negrito = lista => lista.map(n => `<b>${n}</b>`).join(", ");
+const chipsCaminho = (lista, cls = "") =>
+  lista.map(n => `<span class="chip ${cls}">${n}</span>`).join('<span class="seta">→</span>');
+
+// ---------- grafo ----------
+const nodes = new vis.DataSet(D.usuarios.map(n => ({ id: n, label: n })));
+const edges = new vis.DataSet(D.amizades.map(([a, b]) => ({ id: chave(a, b), from: a, to: b })));
+const rede = new vis.Network($("rede"), { nodes, edges }, {
+  nodes: { shape: "dot", size: 22, font: { size: 15, color: "#0f172a", multi: false } },
+  edges: { width: 1.5, smooth: false },
+  physics: { barnesHut: { springLength: 120, gravitationalConstant: -4000 },
+             stabilization: { iterations: 300 } },
+  interaction: { hover: true },
+});
+rede.once("stabilizationIterationsDone", () => rede.setOptions({ physics: false }));
+rede.on("click", e => { if (e.nodes.length) buscar(origem, e.nodes[0]); });
+
+// ---------- estado ----------
+let origem, destino, passo = 0, timer = null;
+const totalPassos = () => D.bfs[origem].passos.length;   // índice == total => resultado final
+
+// ---------- estatísticas ----------
+const s = D.estatisticas, md = D.mais_distantes;
+$("stats").innerHTML = [
+  [s.usuarios, "usuários"], [s.amizades, "amizades"], [s.grau_medio, "amigos em média"],
+  [`${s.mais_popular} (${s.grau_max})`, "mais conectado"], [md.distancia, "maior distância"],
+].map(([v, r]) => `<div class="stat"><div class="valor">${v}</div><div class="rotulo">${r}</div></div>`).join("");
+
+// ---------- mais distantes ----------
+$("distantes").innerHTML = `
+  <h2>3. Usuários mais distantes</h2>
+  <p><b>${md.par[0]}</b> e <b>${md.par[1]}</b> estão a
+     <span style="color:#ea580c;font-weight:800;font-size:1.3rem">${md.distancia}</span> conexões.</p>
+  <div class="chips">${chipsCaminho(md.caminho, "laranja")}</div>
+  <br><button id="btnDistantes">Ver no grafo</button>`;
+$("btnDistantes").onclick = () => buscar(md.par[0], md.par[1]);
+
+// ---------- selects ----------
+for (const sel of [$("origem"), $("destino")])
+  sel.innerHTML = D.usuarios.map(n => `<option>${n}</option>`).join("");
+$("btnBuscar").onclick = () => buscar($("origem").value, $("destino").value);
+$("btnTrocar").onclick = () => buscar($("destino").value, $("origem").value);
+
+// ---------- controles ----------
+$("btnInicio").onclick = () => { parar(); irPara(0); };
+$("btnVoltar").onclick = () => { parar(); irPara(passo - 1); };
+$("btnAvancar").onclick = () => { parar(); irPara(passo + 1); };
+$("btnFim").onclick = () => { parar(); irPara(totalPassos()); };
+$("btnPlay").onclick = () => {
+  if (timer) return parar();
+  if (passo >= totalPassos()) irPara(0);
+  $("btnPlay").textContent = "⏸ Pausar";
+  timer = setInterval(() => {
+    irPara(passo + 1);
+    if (passo >= totalPassos()) parar();
+  }, 1100);
+};
+function parar() { clearInterval(timer); timer = null; $("btnPlay").textContent = "▶ Animar"; }
+
+// ---------- lógica de exibição ----------
+function buscar(o, d) {
+  parar();
+  origem = o; destino = d;
+  $("origem").value = o; $("destino").value = d;
+  mostrarResultado();
+  marcarMatriz();
+  irPara(0);
+  $("btnPlay").click();          // já começa animando
+}
+
+function irPara(k) {
+  passo = Math.max(0, Math.min(k, totalPassos()));
+  desenhar();
+}
+
+function mostrarResultado() {
+  const b = D.bfs[origem], cam = b.caminhos[destino];
+  $("resultado").innerHTML = cam
+    ? `<h2>Resultado</h2>
+       <div style="display:flex;gap:14px;align-items:center">
+         <div class="distancia">${b.distancias[destino]}</div>
+         <div>conexões entre <b>${origem}</b> e <b>${destino}</b><br>
+           <span class="vazio">${cam.length - 2 > 0 ? cam.length - 2 + " intermediário(s)" : "são amigos diretos"}</span></div>
+       </div>
+       <div class="chips">${chipsCaminho(cam)}</div>`
+    : `<h2>Resultado</h2><p>Não existe caminho entre <b>${origem}</b> e <b>${destino}</b>.</p>`;
+}
+
+function desenhar() {
+  const b = D.bfs[origem], passos = b.passos;
+  const fim = passo === passos.length;
+  const p = passos[Math.min(passo, passos.length - 1)];
+  const visitados = new Set(p.visitados), naFila = new Set(p.fila);
+  const caminho = fim ? (b.caminhos[destino] || []) : [];
+  const noCaminho = new Set(caminho);
+  const arestasCaminho = new Set(caminho.slice(1).map((n, i) => chave(caminho[i], n)));
+
+  nodes.update(D.usuarios.map(n => {
+    let cor = COR.neutro;
+    if (visitados.has(n)) cor = COR.visitado;
+    if (naFila.has(n)) cor = COR.fila;
+    if (!fim && n === p.atual) cor = COR.atual;
+    if (noCaminho.has(n)) cor = COR.caminho;
+    const especial = n === origem || n === destino;
+    return {
+      id: n,
+      label: visitados.has(n) ? `${n}\n${b.distancias[n]}` : n,
+      color: { background: cor, border: especial ? "#0f172a" : "#ffffff",
+               highlight: { background: cor, border: "#0f172a" },
+               hover: { background: cor, border: "#0f172a" } },
+      borderWidth: especial ? 4 : 2,
+      size: especial ? 28 : 22,
+    };
+  }));
+
+  edges.update(D.amizades.map(([a, c]) => {
+    const k = chave(a, c);
+    const arvore = (visitados.has(a) && b.pais[a] === c) || (visitados.has(c) && b.pais[c] === a);
+    let cor = "#d5dbe3", largura = 1.5;
+    if (arvore) { cor = "#86efac"; largura = 3; }
+    if (arestasCaminho.has(k)) { cor = COR.caminho; largura = 6; }
+    return { id: k, color: { color: cor, highlight: cor, hover: cor }, width: largura };
+  }));
+
+  // texto explicativo
+  let info;
+  if (passo === 0) {
+    info = `A busca começa em <b>${origem}</b> com distância 0. Ele é o único na fila.`;
+  } else if (fim) {
+    info = b.caminhos[destino]
+      ? `Fila vazia: a busca terminou. Voltando de "pai" em "pai" a partir de <b>${destino}</b>,
+         obtemos o caminho mais curto, com <b>${b.distancias[destino]}</b> conexões.`
+      : `Fila vazia: a busca terminou sem alcançar <b>${destino}</b>.`;
+  } else {
+    const d = b.distancias[p.atual];
+    info = `Retira <b>${p.atual}</b> do início da fila (distância ${d}). `;
+    info += p.novos.length
+      ? `Amigos ainda não visitados: ${negrito(p.novos)} → recebem distância <b>${d + 1}</b> e entram no fim da fila. `
+      : `Nenhum amigo novo. `;
+    if (p.ignorados.length) info += `<span class="vazio">Ignorados (já visitados): ${p.ignorados.join(", ")}.</span>`;
+    if (p.novos.includes(destino)) info += `<br>🎯 <b>${destino}</b> foi encontrado com distância ${d + 1}!`;
+  }
+  $("passoInfo").innerHTML = info;
+  $("contador").textContent = fim ? "Resultado final" : `Passo ${passo} de ${passos.length - 1}`;
+  $("progresso").style.width = (100 * passo / passos.length) + "%";
+
+  $("fila").innerHTML = p.fila.length && !fim
+    ? p.fila.map(n => `<span class="chip fila">${n}</span>`).join("")
+    : `<span class="vazio">(vazia)</span>`;
+
+  $("tabela").innerHTML = `<tr><th>Usuário</th><th>Distância</th><th>Descoberto por</th></tr>` +
+    p.visitados.map(n => `<tr class="${n === destino ? "destaque" : ""}">
+      <td>${n}</td><td>${b.distancias[n]}</td><td>${b.pais[n] ?? "— (origem)"}</td></tr>`).join("");
+}
+
+// ---------- matriz de distâncias ----------
+function montarMatriz() {
+  const max = md.distancia || 1;
+  let html = `<tr><th class="lin"></th>${D.usuarios.map(n => `<th>${n}</th>`).join("")}</tr>`;
+  for (const a of D.usuarios) {
+    html += `<tr><th class="lin">${a}</th>`;
+    for (const b of D.usuarios) {
+      const d = D.bfs[a].distancias[b];
+      let fundo = "#f1f5f9", cor = "#94a3b8", txt = d ?? "∞";
+      if (d > 0) {
+        const t = d / max;
+        fundo = `hsl(${230 - 200 * t}, 75%, ${92 - 42 * t}%)`;
+        cor = t > 0.55 ? "white" : "#0f172a";
+      }
+      html += `<td data-a="${a}" data-b="${b}" style="background:${fundo};color:${cor}">${a === b ? "·" : txt}</td>`;
+    }
+    html += "</tr>";
+  }
+  $("matriz").innerHTML = html;
+  $("matriz").onclick = e => {
+    const td = e.target.closest("td");
+    if (td && td.dataset.a !== td.dataset.b) buscar(td.dataset.a, td.dataset.b);
+  };
+}
+function marcarMatriz() {
+  document.querySelectorAll(".matriz td").forEach(td =>
+    td.classList.toggle("sel", td.dataset.a === origem && td.dataset.b === destino));
+}
+
+montarMatriz();
+buscar(D.inicial.origem, D.inicial.destino);
+</script>
+</body>
+</html>
