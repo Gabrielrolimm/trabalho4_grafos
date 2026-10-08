@@ -2,13 +2,15 @@
 Trabalho - Busca em Largura (BFS)
 Encontra o caminho mais curto entre dois usuários de uma rede social.
 
+A rede é lida de um arquivo em outro diretório (por padrão, dados/rede.json).
+
 Uso:
-    python main.py                      -> pergunta origem e destino
-    python main.py Gabriel Paula        -> já informa origem e destino
-    python main.py Gabriel Paula outra_rede.json
+    python main.py                                  -> pergunta origem e destino
+    python main.py Gabriel Paula                    -> já informa origem e destino
+    python main.py Gabriel Paula --rede /outra/pasta/rede.json   (opcional; o padrão vem da variável CAMINHO_REDE)
 """
 
-import sys
+import argparse
 import webbrowser
 from pathlib import Path
 
@@ -16,17 +18,44 @@ from bfs import caminho_mais_curto, usuarios_mais_distantes
 from rede import carregar_rede
 from visualizacao import gerar_html, montar_dados
 
+# ===========================================================================
+# CONFIGURAÇÃO: caminho do arquivo da rede
+#   - relativo (ex.: "dados/rede.json") -> contado a partir da pasta deste main.py
+#   - absoluto (ex.: "/home/gabriel/Desktop/redes/turma.json")
+# ===========================================================================
+CAMINHO_REDE = "/home/gabriel/Desktop/Gabriel/trabalho4_grafos/trabalho4_grafos/dados/rede.json"
+
+
+def resolver_caminho(caminho):
+    """Converte o texto do caminho num Path absoluto."""
+    p = Path(caminho).expanduser()          # entende "~" como a pasta do usuário
+    if not p.is_absolute():
+        p = Path(__file__).parent / p       # relativo à pasta do main.py
+    return p
+
+
+def ler_argumentos():
+    parser = argparse.ArgumentParser(description="Caminho mais curto numa rede social (BFS)")
+    parser.add_argument("origem", nargs="?", help="usuário de partida")
+    parser.add_argument("destino", nargs="?", help="usuário de chegada")
+    parser.add_argument("--rede", default=CAMINHO_REDE,
+                        help=f"arquivo JSON da rede (padrão: {CAMINHO_REDE})")
+    return parser.parse_args()
+
 
 def main():
-    arquivo_rede = sys.argv[3] if len(sys.argv) > 3 else Path(__file__).parent / "rede.json"
+    args = ler_argumentos()
+
+    arquivo_rede = resolver_caminho(args.rede)
+    if not arquivo_rede.exists():
+        print(f"Arquivo da rede não encontrado: {arquivo_rede}")
+        return
     grafo, amizades = carregar_rede(arquivo_rede)
+    print(f"Rede lida de: {arquivo_rede}")
 
     print("Usuários da rede:", ", ".join(grafo))
-    if len(sys.argv) >= 3:
-        origem, destino = sys.argv[1], sys.argv[2]
-    else:
-        origem = input("Usuário de partida: ").strip()
-        destino = input("Usuário de chegada: ").strip()
+    origem = args.origem or input("Usuário de partida: ").strip()
+    destino = args.destino or input("Usuário de chegada: ").strip()
 
     for nome in (origem, destino):
         if nome not in grafo:
